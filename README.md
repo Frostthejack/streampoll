@@ -32,7 +32,7 @@ A highly customizable, borderless, always-on-top overlay application that reads 
 ## Installation
 
 You can download the latest installers and executables for v0.5.1 directly from the repository:
-- [Stream Poll Executable (app.exe)](https://github.com/Frostthejack/streampoll/raw/master/src-tauri/target/release/app.exe)
+- [Stream Poll Executable (streampoll.exe)](https://github.com/Frostthejack/streampoll/raw/master/src-tauri/target/release/streampoll.exe)
 - [Stream Poll Setup Installer (NSIS)](https://github.com/Frostthejack/streampoll/raw/master/src-tauri/target/release/bundle/nsis/stream-poll_0.5.1_x64-setup.exe)
 - [Stream Poll MSI Installer](https://github.com/Frostthejack/streampoll/raw/master/src-tauri/target/release/bundle/msi/stream-poll_0.5.1_x64_en-US.msi)
 

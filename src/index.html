@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Stream Poll</title>
+  <meta name="description" content="Live chat poll overlay for Restream.io streams" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700&family=Fira+Code:wght@400;500&family=Press+Start+2P&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles/main.css" />
+  <link rel="stylesheet" href="styles/poll-themes.css" />
+  <link rel="stylesheet" href="styles/animations.css" />
+  <link rel="stylesheet" href="styles/settings.css" />
+</head>
+<body>
+  <!-- Custom Titlebar -->
+  <div id="titlebar" data-tauri-drag-region>
+    <div class="titlebar-left" data-tauri-drag-region>
+      <span class="app-icon">📊</span>
+      <span class="app-name" data-tauri-drag-region>Stream Poll</span>
+    </div>
+    <div class="titlebar-controls">
+      <button id="btn-toggle-view" class="titlebar-btn" title="Toggle Settings (Ctrl+,)">⚙️</button>
+      <button id="btn-minimize" class="titlebar-btn" title="Minimize">─</button>
+      <button id="btn-close" class="titlebar-btn close-btn" title="Close">✕</button>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- POLL OVERLAY VIEW                               -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <div id="view-poll" class="view active">
+    <div id="poll-container" class="theme-glassmorphism">
+      <!-- Status Bar -->
+      <div id="poll-status-bar">
+        <div id="status-dot" class="status-dot idle"></div>
+        <span id="status-label">Idle</span>
+        <span id="total-votes-display"></span>
+      </div>
+
+      <!-- Question -->
+      <div id="poll-question" class="poll-question">Configure your poll in settings</div>
+
+      <!-- Options (rendered dynamically) -->
+      <div id="poll-options" class="poll-options"></div>
+
+      <!-- Click-through indicator -->
+      <div id="click-through-indicator" class="click-through-badge hidden">
+        <span>Click-Through ON</span>
+      </div>
+    </div>
+
+    <!-- Quick controls always visible on poll view -->
+    <div id="quick-controls">
+      <button id="qc-start" class="qc-btn start-btn" title="Start Poll">▶ Start</button>
+      <button id="qc-pause" class="qc-btn pause-btn hidden" title="Pause Poll">⏸ Pause</button>
+      <button id="qc-resume" class="qc-btn start-btn hidden" title="Resume Poll">▶ Resume</button>
+      <button id="qc-stop" class="qc-btn stop-btn hidden" title="Stop Poll">⏹ Stop</button>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- SETTINGS VIEW                                   -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <div id="view-settings" class="view hidden">
+    <!-- Tab Navigation -->
+    <nav class="settings-tabs" role="tablist">
+      <button class="tab-btn active" data-tab="poll-setup" role="tab" id="tab-poll-setup">
+        <span class="tab-icon">📋</span> Poll
+      </button>
+      <button class="tab-btn" data-tab="appearance" role="tab" id="tab-appearance">
+        <span class="tab-icon">🎨</span> Style
+      </button>
+      <button class="tab-btn" data-tab="window" role="tab" id="tab-window">
+        <span class="tab-icon">🪟</span> Window
+      </button>
+      <button class="tab-btn" data-tab="connection" role="tab" id="tab-connection">
+        <span class="tab-icon">🔗</span> Connect
+      </button>
+      <button class="tab-btn" data-tab="controls" role="tab" id="tab-controls">
+        <span class="tab-icon">🎮</span> Controls
+      </button>
+    </nav>
+
+    <!-- ── Tab 1: Poll Setup ── -->
+    <div class="tab-panel active" data-panel="poll-setup" role="tabpanel">
+      <div class="settings-section">
+        <label class="settings-label" for="poll-question-input">Poll Question</label>
+        <input
+          type="text"
+          id="poll-question-input"
+          class="settings-input"
+          placeholder="What do you think?"
+          maxlength="200"
+        />
+      </div>
+
+      <div class="settings-section">
+        <div class="section-header">
+          <label class="settings-label">Options</label>
+          <button id="add-option-btn" class="btn-secondary small">+ Add Option</button>
+        </div>
+        <div id="options-list" class="options-list">
+          <!-- Dynamically rendered option rows -->
+        </div>
+      </div>
+
+      <div class="settings-section toggles-row">
+        <div class="toggle-item">
+          <label class="toggle-label" for="toggle-case-insensitive">Case-insensitive</label>
+          <label class="toggle-switch">
+            <input type="checkbox" id="toggle-case-insensitive" checked />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <div class="toggle-item">
+          <label class="toggle-label" for="toggle-one-vote">One vote per user</label>
+          <label class="toggle-switch">
+            <input type="checkbox" id="toggle-one-vote" checked />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+      </div>
+
+      <button id="save-poll-config-btn" class="btn-primary full-width">Save Poll Config</button>
+    </div>
+
+    <!-- ── Tab 2: Appearance ── -->
+    <div class="tab-panel hidden" data-panel="appearance" role="tabpanel">
+      <div class="settings-section">
+        <label class="settings-label">Theme Preset</label>
+        <div class="theme-grid" id="theme-grid">
+          <div class="theme-card active" data-theme="glassmorphism" id="theme-card-glassmorphism">
+            <div class="theme-preview glass-preview"></div>
+            <span>Glassmorphism</span>
+          </div>
+          <div class="theme-card" data-theme="neon" id="theme-card-neon">
+            <div class="theme-preview neon-preview"></div>
+            <span>Neon Glow</span>
+          </div>
+          <div class="theme-card" data-theme="minimal" id="theme-card-minimal">
+            <div class="theme-preview minimal-preview"></div>
+            <span>Minimal</span>
+          </div>
+          <div class="theme-card" data-theme="retro" id="theme-card-retro">
+            <div class="theme-preview retro-preview"></div>
+            <span>Retro Arcade</span>
+          </div>
+          <div class="theme-card" data-theme="gradient" id="theme-card-gradient">
+            <div class="theme-preview gradient-preview"></div>
+            <span>Gradient Wave</span>
+          </div>
+          <div class="theme-card" data-theme="custom" id="theme-card-custom">
+            <div class="theme-preview custom-preview">🎨</div>
+            <span>Custom</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Custom colors (only shown when custom theme selected) -->
+      <div id="custom-colors-section" class="settings-section hidden">
+        <label class="settings-label">Custom Colors</label>
+        <div class="color-grid">
+          <div class="color-row">
+            <label for="color-bar-fill">Bar Fill</label>
+            <input type="color" id="color-bar-fill" value="#6c63ff" />
+          </div>
+          <div class="color-row">
+            <label for="color-bar-bg">Bar Background</label>
+            <input type="color" id="color-bar-bg" value="#1a1a2e" />
+          </div>
+          <div class="color-row">
+            <label for="color-text">Text Color</label>
+            <input type="color" id="color-text" value="#ffffff" />
+          </div>
+          <div class="color-row">
+            <label for="color-bg">Panel Background</label>
+            <input type="color" id="color-bg" value="#0f0f1e" />
+          </div>
+          <div class="color-row">
+            <label for="color-accent">Accent Color</label>
+            <input type="color" id="color-accent" value="#a78bfa" />
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <label class="settings-label" for="font-family-select">Font</label>
+        <select id="font-family-select" class="settings-select">
+          <option value="Inter">Inter (Default)</option>
+          <option value="Outfit">Outfit</option>
+          <option value="Roboto">Roboto</option>
+          <option value="Fira Code">Fira Code</option>
+          <option value="Press Start 2P">Press Start 2P</option>
+          <option value="Arial">Arial</option>
+          <option value="Georgia">Georgia</option>
+        </select>
+      </div>
+
+      <div class="settings-section">
+        <label class="settings-label">
+          Font Size: <span id="font-size-value">16</span>px
+        </label>
+        <input type="range" id="font-size-slider" class="settings-slider" min="10" max="36" value="16" />
+      </div>
+
+      <div class="settings-section">
+        <label class="settings-label">
+          Overlay Opacity: <span id="opacity-value">90</span>%
+        </label>
+        <input type="range" id="opacity-slider" class="settings-slider" min="20" max="100" value="90" />
+      </div>
+
+      <div class="settings-section toggles-row">
+        <div class="toggle-item">
+          <label class="toggle-label" for="toggle-show-percentages">Show Percentages</label>
+          <label class="toggle-switch">
+            <input type="checkbox" id="toggle-show-percentages" checked />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <div class="toggle-item">
+          <label class="toggle-label" for="toggle-show-counts">Show Vote Counts</label>
+          <label class="toggle-switch">
+            <input type="checkbox" id="toggle-show-counts" checked />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <div class="toggle-item">
+          <label class="toggle-label" for="toggle-show-question">Show Question</label>
+          <label class="toggle-switch">
+            <input type="checkbox" id="toggle-show-question" checked />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+      </div>
+
+      <button id="save-appearance-btn" class="btn-primary full-width">Apply Appearance</button>
+    </div>
+
+    <!-- ── Tab 3: Window ── -->
+    <div class="tab-panel hidden" data-panel="window" role="tabpanel">
+      <div class="settings-section toggles-row">
+        <div class="toggle-item">
+          <label class="toggle-label" for="toggle-always-on-top">Always on Top</label>
+          <label class="toggle-switch">
+            <input type="checkbox" id="toggle-always-on-top" checked />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <div class="toggle-item">
+          <label class="toggle-label" for="toggle-click-through">Click-Through</label>
+          <label class="toggle-switch">
+            <input type="checkbox" id="toggle-click-through" />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <label class="settings-label">Click-Through Keybind</label>
+        <div class="keybind-recorder-row">
+          <input
+            type="text"
+            id="keybind-display"
+            class="settings-input keybind-input"
+            placeholder="Click to record shortcut..."
+            readonly
+            value="CommandOrControl+Shift+T"
+          />
+          <button id="keybind-record-btn" class="btn-secondary">Record</button>
+          <button id="keybind-save-btn" class="btn-primary">Save</button>
+        </div>
+        <p class="settings-hint">Press your desired key combination after clicking Record.</p>
+      </div>
+
+      <div class="settings-info-box">
+        <p>💡 When <strong>Click-Through</strong> is enabled, mouse clicks pass through the overlay to windows behind it. Use the keybind to toggle it while streaming.</p>
+      </div>
+    </div>
+
+    <!-- ── Tab 4: Connection ── -->
+    <div class="tab-panel hidden" data-panel="connection" role="tabpanel">
+      <div class="settings-section">
+        <div class="connection-status-row">
+          <div id="conn-status-indicator" class="conn-dot disconnected"></div>
+          <span id="conn-status-label">Not connected</span>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <label class="settings-label" for="input-client-id">Restream Client ID</label>
+        <input
+          type="text"
+          id="input-client-id"
+          class="settings-input"
+          placeholder="Your Restream app Client ID"
+          autocomplete="off"
+        />
+      </div>
+
+      <div class="settings-section">
+        <label class="settings-label" for="input-client-secret">Restream Client Secret</label>
+        <input
+          type="password"
+          id="input-client-secret"
+          class="settings-input"
+          placeholder="Your Restream app Client Secret"
+          autocomplete="off"
+        />
+      </div>
+
+      <div class="settings-info-box">
+        <p>📖 Register your app at <strong>developers.restream.io</strong>, then paste your Client ID and Secret here. Use <code>http://localhost:17394/callback</code> as the redirect URI.</p>
+      </div>
+
+      <div class="btn-row">
+        <button id="btn-login" class="btn-primary">🔐 Connect to Restream</button>
+        <button id="btn-logout" class="btn-secondary hidden">Disconnect</button>
+      </div>
+    </div>
+
+    <!-- ── Tab 5: Controls ── -->
+    <div class="tab-panel hidden" data-panel="controls" role="tabpanel">
+      <div class="big-controls">
+        <button id="ctrl-start" class="big-btn big-start">▶ Start</button>
+        <button id="ctrl-pause" class="big-btn big-pause hidden">⏸ Pause</button>
+        <button id="ctrl-resume" class="big-btn big-start hidden">▶ Resume</button>
+        <button id="ctrl-stop" class="big-btn big-stop hidden">⏹ Stop</button>
+        <button id="ctrl-reset" class="big-btn big-reset">↺ Reset Votes</button>
+      </div>
+
+      <div class="settings-section">
+        <div class="section-header">
+          <label class="settings-label">Live Chat Log</label>
+          <button id="clear-log-btn" class="btn-secondary small">Clear</button>
+        </div>
+        <div id="chat-log" class="chat-log">
+          <p class="log-placeholder">Chat messages will appear here when connected.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/app.js"></script>
+</body>
+</html>

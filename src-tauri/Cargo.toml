@@ -1,5 +1,5 @@
 [package]
-name = "app"
+name = "streampoll"
 version = "0.5.1"
 description = "Stream Poll — Restream.io live chat poll overlay"
 authors = []

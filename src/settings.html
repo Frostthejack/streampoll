@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Stream Poll — Settings</title>
+  <meta name="description" content="Stream Poll settings and controls" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700&family=Fira+Code:wght@400;500&family=Press+Start+2P&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles/main.css" />
+  <link rel="stylesheet" href="styles/poll-themes.css" />
+  <link rel="stylesheet" href="styles/settings.css" />
+  <link rel="stylesheet" href="styles/animations.css" />
+  <style>
+    html, body {
+      margin: 0; padding: 0;
+      background: #0f0f1e;
+      color: #e2e8f0;
+      font-family: 'Inter', -apple-system, sans-serif;
+      height: 100%; overflow: hidden;
+    }
+    #settings-root {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+    /* App header */
+    #app-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px 10px;
+      background: rgba(255,255,255,0.03);
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      flex-shrink: 0;
+    }
+    .header-brand {
+      display: flex; align-items: center; gap: 8px;
+    }
+    .header-icon { font-size: 20px; }
+    .header-title { font-size: 15px; font-weight: 600; color: #a78bfa; }
+    .header-status {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 12px; color: rgba(255,255,255,0.5);
+    }
+    /* Poll overlay toggle button */
+    .header-controls { display: flex; align-items: center; gap: 8px; }
+    .window-close-btn {
+      background: transparent; border: none; color: rgba(255,255,255,0.6);
+      font-size: 14px; cursor: pointer; padding: 6px 10px; border-radius: 4px;
+      transition: background 0.2s, color 0.2s;
+    }
+    .window-close-btn:hover { background: rgba(255,60,60,0.8); color: white; }
+    #btn-toggle-overlay {
+      background: linear-gradient(135deg, #6c63ff, #a78bfa);
+      border: none; border-radius: 8px;
+      color: #fff; font-size: 13px; font-weight: 600;
+      padding: 7px 14px; cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s;
+    }
+    #btn-toggle-overlay:hover { opacity: 0.85; transform: translateY(-1px); }
+    #btn-toggle-overlay.overlay-open {
+      background: linear-gradient(135deg, #ef4444, #f97316);
+    }
+    /* Scrollable settings content */
+    #settings-scroll {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+    }
+    #settings-scroll::-webkit-scrollbar { width: 4px; }
+    #settings-scroll::-webkit-scrollbar-track { background: transparent; }
+    #settings-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+
+    /* Library & Queue */
+    .library-list { display: flex; flex-direction: column; gap: 6px; }
+    .library-item, .queue-item {
+      display: flex; align-items: center; gap: 8px;
+      background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 8px; padding: 8px 10px; font-size: 13px;
+    }
+    .library-item-name, .queue-item-name {
+      flex: 1; font-weight: 500; color: #e2e8f0; white-space: nowrap;
+      overflow: hidden; text-overflow: ellipsis;
+    }
+    .library-item-meta { font-size: 11px; color: rgba(255,255,255,0.4); white-space: nowrap; }
+    .lib-btn {
+      background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 6px; color: #e2e8f0; font-size: 12px; cursor: pointer;
+      padding: 3px 8px; transition: background 0.15s;
+    }
+    .lib-btn:hover { background: rgba(255,255,255,0.14); }
+    .lib-btn.danger:hover { background: rgba(239,68,68,0.3); border-color: rgba(239,68,68,0.4); }
+    .queue-drag-handle { cursor: grab; color: rgba(255,255,255,0.3); user-select: none; font-size: 14px; }
+    .queue-item.drag-over { border-color: #6c63ff; background: rgba(108,99,255,0.1); }
+    .queue-item-num { font-size: 11px; color: rgba(255,255,255,0.3); min-width: 16px; text-align: center; }
+
+    /* History Cards */
+    #history-list { display: flex; flex-direction: column; gap: 12px; }
+    .history-card {
+      background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.09);
+      border-radius: 10px; padding: 14px 16px; position: relative;
+      transition: border-color 0.2s;
+    }
+    .history-card:hover { border-color: rgba(108,99,255,0.4); }
+    .history-card-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 8px;
+    }
+    .history-card-date { font-size: 11px; color: rgba(255,255,255,0.45); font-weight: 500; letter-spacing: 0.02em; }
+    .history-card-total { font-size: 11px; color: rgba(255,255,255,0.35); }
+    .history-card-question {
+      font-size: 14px; font-weight: 600; color: #e2e8f0;
+      margin-bottom: 12px; line-height: 1.35;
+    }
+    .history-option { margin-bottom: 8px; }
+    .history-option-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+    .history-option-label { font-size: 12px; color: #cbd5e1; font-weight: 500; }
+    .history-option-stats { font-size: 11px; color: rgba(255,255,255,0.45); }
+    .history-bar-track {
+      height: 6px; background: rgba(255,255,255,0.07); border-radius: 3px; overflow: hidden;
+    }
+    .history-bar-fill {
+      height: 100%; border-radius: 3px; transition: width 0.4s ease;
+    }
+  </style>
+</head>
+<body>
+<div id="settings-root">
+
+  <!-- Header -->
+  <div id="app-header" data-tauri-drag-region>
+    <div class="header-brand" data-tauri-drag-region>
+      <span class="header-icon" data-tauri-drag-region>📊</span>
+      <span class="header-title" data-tauri-drag-region>Stream Poll</span>
+    </div>
+    <div class="header-status" data-tauri-drag-region>
+      <div id="conn-status-indicator" class="conn-dot disconnected"></div>
+      <span id="conn-status-label" data-tauri-drag-region>Not connected</span>
+    </div>
+    <div class="header-controls">
+      <button id="btn-toggle-overlay" title="Show/hide the poll overlay window">▶ Show Overlay</button>
+      <button id="btn-close-settings" title="Close Settings" class="window-close-btn">✕</button>
+    </div>
+  </div>
+
+  <!-- Settings tabs + panels -->
+  <div id="settings-scroll">
+
+    <!-- Tab Navigation -->
+    <nav class="settings-tabs" role="tablist">
+      <button class="tab-btn active" data-tab="poll-setup" role="tab" id="tab-poll-setup">
+        <span class="tab-icon">📋</span> Poll
+      </button>
+      <button class="tab-btn" data-tab="controls" role="tab" id="tab-controls">
+        <span class="tab-icon">🎮</span> Controls
+      </button>
+      <button class="tab-btn" data-tab="library" role="tab" id="tab-library">
+        <span class="tab-icon">📚</span> Library
+      </button>
+      <button class="tab-btn" data-tab="history" role="tab" id="tab-history">
+        <span class="tab-icon">📈</span> History
+      </button>
+      <button class="tab-btn" data-tab="appearance" role="tab" id="tab-appearance">
+        <span class="tab-icon">🎨</span> Style
+      </button>
+      <button class="tab-btn" data-tab="window" role="tab" id="tab-window">
+        <span class="tab-icon">🪟</span> Window
+      </button>
+      <button class="tab-btn" data-tab="connection" role="tab" id="tab-connection">
+        <span class="tab-icon">🔗</span> Connect
+      </button>
+    </nav>
+
+    <!-- ── Tab 1: Poll Setup ── -->
+    <div class="tab-panel active" data-panel="poll-setup" role="tabpanel">
+      <div class="settings-section">
+        <label class="settings-label" for="poll-question-input">Poll Question</label>
+        <input type="text" id="poll-question-input" class="settings-input"
+          placeholder="What do you think?" maxlength="200" />
+      </div>
+
+      <div class="settings-section">
+        <div class="section-header">
+          <label class="settings-label">Options</label>
+          <button id="add-option-btn" class="btn-secondary small">+ Add Option</button>
+        </div>
+        <div id="options-list" class="options-list"></div>
+      </div>
+
+      <div class="settings-section toggles-row">
+        <div class="toggle-item">
+          <label class="toggle-label" for="toggle-case-insensitive">Case-insensitive</label>
+          <label class="toggle-switch">
+            <input type="checkbox" id="toggle-case-insensitive" checked />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <div class="toggle-item">
+          <label class="toggle-label" for="toggle-one-vote">One vote per user</label>
+          <label class="toggle-switch">
+            <input type="checkbox" id="toggle-one-vote" checked />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+      </div>
+
+      <button id="save-poll-config-btn" class="btn-primary full-width">💾 Save Poll Config</button>
+      <button id="save-poll-library-btn" class="btn-secondary full-width" style="margin-top:6px;">📚 Save to Library...</button>
+    </div>
+
+    <!-- ── Tab 2: Controls ── -->
+    <div class="tab-panel hidden" data-panel="controls" role="tabpanel">
+      <div class="settings-section">
+        <label class="settings-label">Poll Status</label>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+          <div id="status-dot" class="status-dot idle"></div>
+          <span id="status-label" style="font-size:14px;">Idle</span>
+          <span id="total-votes-display" style="font-size:12px;color:rgba(255,255,255,0.4);margin-left:8px;"></span>
+        </div>
+      </div>
+      <div class="big-controls">
+        <button id="ctrl-start" class="big-btn big-start">▶ Start</button>
+        <button id="ctrl-pause" class="big-btn big-pause hidden">⏸ Pause</button>
+        <button id="ctrl-resume" class="big-btn big-start hidden">▶ Resume</button>
+        <button id="ctrl-stop" class="big-btn big-stop hidden">⏹ Stop</button>
+        <button id="ctrl-reset" class="big-btn big-reset">↺ Reset Votes</button>
+        <button id="ctrl-next-poll" class="big-btn big-reset hidden">⏭ Next Poll</button>
+      </div>
+
+      <div class="settings-section">
+        <div class="section-header">
+          <label class="settings-label">Live Chat Log</label>
+          <button id="clear-log-btn" class="btn-secondary small">Clear</button>
+        </div>
+        <div id="chat-log" class="chat-log">
+          <p class="log-placeholder">Chat messages will appear here when connected.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Tab: Library ── -->
+    <div class="tab-panel hidden" data-panel="library" role="tabpanel">
+
+      <!-- Saved Polls -->
+      <div class="settings-section">
+        <div class="section-header">
+          <label class="settings-label">Saved Polls</label>
+        </div>
+        <div id="library-list" class="library-list">
+          <p class="log-placeholder">No saved polls yet. Create a poll and click "Save to Library".</p>
+        </div>
+      </div>
+
+      <!-- Queue -->
+      <div class="settings-section">
+        <div class="section-header">
+          <label class="settings-label">Queue</label>
+          <span id="queue-position-label" style="font-size:11px;color:rgba(255,255,255,0.4);"></span>
+        </div>
+        <div id="queue-list" class="library-list">
+          <p class="log-placeholder" id="queue-empty-msg">No polls in queue. Click + on a saved poll to add it.</p>
+        </div>
+        <button id="btn-reset-queue" class="btn-secondary small" style="margin-top:8px;">↺ Reset Queue Position</button>
+      </div>
+
+    </div>
+
+    <!-- ── Tab: History ── -->
+    <div class="tab-panel hidden" data-panel="history" role="tabpanel">
+      <div class="settings-section">
+        <div class="section-header">
+          <label class="settings-label">Poll History</label>
+          <button id="btn-clear-history" class="btn-secondary small">Clear All</button>
+        </div>
+        <div id="history-list">
+          <p class="log-placeholder" id="history-empty-msg">No history yet. Stop a poll with votes to record it.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Tab 3: Appearance ── -->
+    <div class="tab-panel hidden" data-panel="appearance" role="tabpanel">
+      <div class="settings-section">
+        <label class="settings-label">Theme Preset</label>
+        <div class="theme-grid" id="theme-grid">
+          <div class="theme-card" data-theme="custom" id="theme-card-custom">
+            <div class="theme-preview custom-preview">🎨</div>
+            <span>Custom</span>
+          </div>
+          <div class="theme-card active" data-theme="glassmorphism" id="theme-card-glassmorphism">
+            <div class="theme-preview glass-preview"></div>
+            <span>Glassmorphism</span>
+          </div>
+          <div class="theme-card" data-theme="neon" id="theme-card-neon">
+            <div class="theme-preview neon-preview"></div>
+            <span>Neon Glow</span>
+          </div>
+          <div class="theme-card" data-theme="minimal" id="theme-card-minimal">
+            <div class="theme-preview minimal-preview"></div>
+            <span>Minimal</span>
+          </div>
+          <div class="theme-card" data-theme="retro" id="theme-card-retro">
+            <div class="theme-preview retro-preview"></div>
+            <span>Retro Arcade</span>
+          </div>
+          <div class="theme-card" data-theme="gradient" id="theme-card-gradient">
+            <div class="theme-preview gradient-preview"></div>
+            <span>Gradient Wave</span>
+          </div>
+        </div>
+        <button id="btn-save-custom-theme" class="btn-secondary full-width" style="margin-top: 12px;">💾 Save as New Theme...</button>
+      </div>
+
+      <div id="custom-colors-section" class="settings-section">
+        <label class="settings-label">Colors</label>
+        <div class="color-grid">
+          <div class="color-row">
+            <label for="color-bar-fill">Bar Fill Color</label>
+            <div style="display: flex; gap: 4px;"><input type="color" id="color-bar-fill" value="#6c63ff" /><button class="btn-secondary small btn-reset-color" data-target="bar_fill" title="Reset">↺</button></div>
+          </div>
+          <div class="color-row">
+            <label for="color-bar-bg">Bar Background</label>
+            <div style="display: flex; gap: 4px;"><input type="color" id="color-bar-bg" value="#ffffff" /><button class="btn-secondary small btn-reset-color" data-target="bar_bg" title="Reset">↺</button></div>
+          </div>
+          <div class="color-row">
+            <label for="color-text">Text Color</label>
+            <div style="display: flex; gap: 4px;"><input type="color" id="color-text" value="#ffffff" /><button class="btn-secondary small btn-reset-color" data-target="text_color" title="Reset">↺</button></div>
+          </div>
+          <div class="color-row">
+            <label for="color-bg">Panel Background</label>
+            <div style="display: flex; gap: 4px;"><input type="color" id="color-bg" value="#0f0f1e" /><button class="btn-secondary small btn-reset-color" data-target="background" title="Reset">↺</button></div>
+          </div>
+          <div class="color-row">
+            <label for="color-accent">Accent Color</label>
+            <div style="display: flex; gap: 4px;"><input type="color" id="color-accent" value="#a78bfa" /><button class="btn-secondary small btn-reset-color" data-target="accent" title="Reset">↺</button></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="custom-image-section" class="settings-section">
+        <label class="settings-label">Panel Background Image</label>
+        <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
+          <input type="file" id="input-bg-image" accept="image/*" class="settings-input" style="padding: 4px;" />
+          <button id="btn-clear-bg-image" class="btn-secondary small" title="Clear Image">✕</button>
+        </div>
+        <img id="bg-image-preview" style="display:none; max-width: 100%; height: auto; max-height: 100px; margin-bottom: 12px; border-radius: 4px; object-fit: cover;" />
+
+        <label class="settings-label">Bar Background Image (Track)</label>
+        <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
+          <input type="file" id="input-bar-bg-image" accept="image/*" class="settings-input" style="padding: 4px;" />
+          <button id="btn-clear-bar-bg-image" class="btn-secondary small" title="Clear Bar Background">✕</button>
+        </div>
+        <img id="bar-bg-image-preview" style="display:none; max-width: 100%; height: auto; max-height: 100px; margin-bottom: 12px; border-radius: 4px; object-fit: cover;" />
+
+        <label class="settings-label">Bar Fill Image</label>
+        <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
+          <input type="file" id="input-bar-fill-image" accept="image/*" class="settings-input" style="padding: 4px;" />
+          <button id="btn-clear-bar-fill-image" class="btn-secondary small" title="Clear Bar Fill">✕</button>
+        </div>
+        <img id="bar-fill-image-preview" style="display:none; max-width: 100%; height: auto; max-height: 100px; margin-bottom: 12px; border-radius: 4px; object-fit: cover;" />
+
+        <label class="settings-label">Banner Background Image</label>
+        <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
+          <input type="file" id="input-banner-image" accept="image/*" class="settings-input" style="padding: 4px;" />
+          <button id="btn-clear-banner-image" class="btn-secondary small" title="Clear Banner">✕</button>
+        </div>
+        <img id="banner-image-preview" style="display:none; max-width: 100%; height: auto; max-height: 100px; margin-bottom: 8px; border-radius: 4px; object-fit: cover;" />
+      </div>
+
+      <div class="settings-section">
+        <label class="settings-label">Style Tweaks</label>
+        
+        <div style="margin-bottom: 12px;">
+          <label class="settings-label">Layout Mode</label>
+          <select id="layout-mode-select" class="settings-input">
+            <option value="standard">Standard (Stacked)</option>
+            <option value="compact">Compact (Inline)</option>
+            <option value="grid">Grid (2 Columns)</option>
+            <option value="minimalist">Minimalist (No Background)</option>
+            <option value="floating">Floating Bars (Inline Text)</option>
+          </select>
+        </div>
+
+        <div style="margin-bottom: 12px;">
+          <label class="settings-label">Global Overlay Effect</label>
+          <select id="global-overlay-select" class="settings-input">
+            <option value="none">None</option>
+            <option value="scanlines">Retro Scanlines</option>
+            <option value="particles">Floating Particles</option>
+            <option value="vignette">Vignette Pulse</option>
+            <option value="cyber-grid">Cyber Grid</option>
+            <option value="light-leaks">Light Leaks</option>
+            <option value="snowfall">Snowfall</option>
+            <option value="glitch">Glitch RGB</option>
+            <option value="fireflies">Fireflies (Chaotic)</option>
+          </select>
+        </div>
+
+        <div style="margin-bottom: 12px;">
+          <div class="color-row" style="background: var(--bg-surface); padding: 8px; border-radius: 6px; border: 1px solid var(--border);">
+            <span>Overlay Color</span>
+            <div style="display: flex; gap: 4px; align-items: center;">
+              <div class="option-color-swatch">
+                <input type="color" id="global-overlay-color" value="#ffffff" />
+              </div>
+              <button class="btn-reset-color" data-target="overlay_color" style="background:transparent; border:none; color:var(--text-muted); cursor:pointer;" title="Reset Color">↺</button>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-bottom: 12px;">
+          <div class="slider-header">
+            <label>Effect Speed</label>
+            <span class="slider-value"><span id="effect-speed-value">1.0</span>x</span>
+          </div>
+          <input type="range" id="effect-speed-slider" min="10" max="300" value="100" />
+        </div>
+
+        <div style="margin-bottom: 12px;">
+          <div class="slider-header">
+            <label>Effect Strength</label>
+            <span class="slider-value"><span id="effect-strength-value">100</span>%</span>
+          </div>
+          <input type="range" id="effect-strength-slider" min="0" max="200" value="100" />
+        </div>
+
+        <div class="toggles-row" style="margin-top: 12px;">
+          <div class="toggle-item">
+            <label class="toggle-label" for="toggle-bar-animations">Bar Fill Animations</label>
+            <label class="toggle-switch"><input type="checkbox" id="toggle-bar-animations" checked /><span class="toggle-slider"></span></label>
+          </div>
+          <div class="toggle-item">
+            <label class="toggle-label" for="toggle-theme-effects">Theme Ambient Effects</label>
+            <label class="toggle-switch"><input type="checkbox" id="toggle-theme-effects" checked /><span class="toggle-slider"></span></label>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <label class="settings-label" for="font-family-select">Font</label>
+        <select id="font-family-select" class="settings-select">
+          <option value="Inter">Inter (Default)</option>
+          <option value="Outfit">Outfit</option>
+          <option value="Roboto">Roboto</option>
+          <option value="Fira Code">Fira Code</option>
+          <option value="Press Start 2P">Press Start 2P</option>
+          <option value="Arial">Arial</option>
+          <option value="Georgia">Georgia</option>
+        </select>
+      </div>
+
+      <div class="settings-section">
+        <label class="settings-label">Question Font Size: <span id="font-size-value">16</span>px</label>
+        <input type="range" id="font-size-slider" class="settings-slider" min="10" max="36" value="16" />
+      </div>
+
+      <div class="settings-section">
+        <label class="settings-label">Options Font Size: <span id="options-font-size-value">14</span>px</label>
+        <input type="range" id="options-font-size-slider" class="settings-slider" min="8" max="24" value="14" />
+      </div>
+
+      <div class="settings-section">
+        <label class="settings-label">Bar Height: <span id="bar-height-value">20</span>px</label>
+        <input type="range" id="bar-height-slider" class="settings-slider" min="4" max="64" value="20" />
+      </div>
+
+      <div class="settings-section">
+        <label class="settings-label">Overlay Opacity: <span id="opacity-value">90</span>%</label>
+        <input type="range" id="opacity-slider" class="settings-slider" min="20" max="100" value="90" />
+      </div>
+
+      <div class="settings-section toggles-row">
+        <div class="toggle-item">
+          <label class="toggle-label" for="toggle-show-percentages">Show Percentages</label>
+          <label class="toggle-switch"><input type="checkbox" id="toggle-show-percentages" checked /><span class="toggle-slider"></span></label>
+        </div>
+        <div class="toggle-item">
+          <label class="toggle-label" for="toggle-show-counts">Show Vote Counts</label>
+          <label class="toggle-switch"><input type="checkbox" id="toggle-show-counts" checked /><span class="toggle-slider"></span></label>
+        </div>
+        <div class="toggle-item">
+          <label class="toggle-label" for="toggle-show-question">Show Question</label>
+          <label class="toggle-switch"><input type="checkbox" id="toggle-show-question" checked /><span class="toggle-slider"></span></label>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 8px;">
+        <button id="btn-reset-theme" class="btn-secondary full-width" title="Reset this theme to its original defaults">↺ Reset Theme to Defaults</button>
+      </div>
+    </div>
+
+    <!-- ── Tab 4: Window ── -->
+    <div class="tab-panel hidden" data-panel="window" role="tabpanel">
+      <div class="settings-section toggles-row">
+        <div class="toggle-item">
+          <label class="toggle-label" for="toggle-always-on-top">Overlay Always on Top</label>
+          <label class="toggle-switch"><input type="checkbox" id="toggle-always-on-top" checked /><span class="toggle-slider"></span></label>
+        </div>
+        <div class="toggle-item">
+          <label class="toggle-label" for="toggle-click-through">Click-Through Mode</label>
+          <label class="toggle-switch"><input type="checkbox" id="toggle-click-through" /><span class="toggle-slider"></span></label>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <label class="settings-label">Click-Through Keybind</label>
+        <div class="keybind-recorder-row">
+          <input type="text" id="keybind-display" class="settings-input keybind-input"
+            placeholder="Click Record..." readonly value="CommandOrControl+Shift+T" />
+          <button id="keybind-record-btn" class="btn-secondary">Record</button>
+          <button id="keybind-save-btn" class="btn-primary">Save</button>
+        </div>
+        <p class="settings-hint">Press your desired key combination after clicking Record.</p>
+      </div>
+
+      <div class="settings-info-box">
+        <p>💡 The overlay window opens when you click <strong>Show Overlay</strong> or start the poll. It stays open independently — minimizing this settings window won't close it.</p>
+      </div>
+    </div>
+
+    <!-- ── Tab 5: Connection ── -->
+    <div class="tab-panel hidden" data-panel="connection" role="tabpanel">
+      <div class="settings-section">
+        <div class="connection-status-row">
+          <div id="conn-status-indicator-2" class="conn-dot disconnected"></div>
+          <span id="conn-status-label-2">Not connected</span>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <label class="settings-label" for="input-client-id">Restream Client ID</label>
+        <input type="text" id="input-client-id" class="settings-input"
+          placeholder="Your Restream app Client ID" autocomplete="off" />
+      </div>
+
+      <div class="settings-section">
+        <label class="settings-label" for="input-client-secret">Restream Client Secret</label>
+        <div style="position: relative; display: flex; align-items: center;">
+          <input type="password" id="input-client-secret" class="settings-input"
+            placeholder="Your Restream app Client Secret" autocomplete="off" style="padding-right: 40px;" />
+          <button id="btn-toggle-secret" class="titlebar-btn" title="Show/Hide Secret" style="position: absolute; right: 4px; background: transparent;">
+            👁
+          </button>
+        </div>
+      </div>
+
+      <div class="settings-info-box">
+        <p>📖 Register your app at <strong>developers.restream.io</strong>, paste your credentials here, and use <code>http://localhost:17394/callback</code> as the redirect URI.</p>
+      </div>
+
+      <div class="btn-row">
+        <button id="btn-login" class="btn-primary">🔐 Connect to Restream</button>
+        <button id="btn-reconnect" class="btn-secondary" title="Force a token refresh if disconnected">🔄 Reconnect</button>
+        <button id="btn-logout" class="btn-secondary hidden">Disconnect</button>
+      </div>
+    </div>
+
+  </div><!-- end settings-scroll -->
+
+  <!-- Save Theme Modal -->
+  <div id="save-theme-modal" class="modal hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 style="margin:0; font-size:16px;">Save Custom Theme</h3>
+      </div>
+      <div class="modal-body" style="padding-top: 16px; padding-bottom: 16px;">
+        <label for="input-theme-name" class="settings-label">Theme Name</label>
+        <input type="text" id="input-theme-name" class="settings-input" placeholder="e.g. Midnight Hacker" autocomplete="off" />
+      </div>
+      <div class="modal-footer" style="display: flex; gap: 8px; justify-content: flex-end;">
+        <button id="btn-cancel-save-theme" class="btn-secondary">Cancel</button>
+        <button id="btn-confirm-save-theme" class="btn-primary">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast notification -->
+  <div id="toast"></div>
+
+</div><!-- end settings-root -->
+<script type="module" src="js/settings-window.js"></script>
+</body>
+</html>
