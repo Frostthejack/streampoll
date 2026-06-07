@@ -37,6 +37,7 @@ async function bootSettings() {
   setupControlsTab();
   setupChatLog();
   setupAuth();
+  setupRemoteTab();
   setupOverlayToggle();
   await loadInitialState();
   setupGlobalListeners();
@@ -84,7 +85,6 @@ async function openOverlay() {
       return;
     }
   } catch(e) { /* window doesn't exist yet */ }
-
   try {
     const overlay = new WebviewWindow('poll-overlay', {
       url: 'poll.html',
@@ -93,12 +93,11 @@ async function openOverlay() {
       height: 480,
       decorations: false,
       transparent: true,
-      alwaysOnTop: true,
+      alwaysOnTop: window._settings ? window._settings.always_on_top === true : false,
       shadow: false,
       skipTaskbar: true,
       resizable: true,
     });
-
     overlay.once('tauri://created', () => {
       overlayOpen = true;
       updateOverlayBtn(true);
@@ -185,13 +184,20 @@ function setupGlobalListeners() {
   listen('ws_status', (event) => {
     updateWsStatus(event.payload);
   });
+
+  listen('remote_status', (event) => {
+    updateRemoteUI(event.payload);
+  });
+
+  listen('library_updated', () => refreshLibrary());
+  listen('queue_updated', () => refreshLibrary());
 }
 
 // ── Sync settings UI from saved state ─────────────────────────
 function syncSettingsUI(settings) {
   if (!settings) return;
   window._settings = settings;
-  safeSet('toggle-always-on-top', 'checked', settings.always_on_top !== false);
+  safeSet('toggle-always-on-top', 'checked', settings.always_on_top === true);
   safeSet('toggle-click-through', 'checked', settings.click_through === true);
   if (settings.custom_font) safeSet('font-family-select', 'value', settings.custom_font);
   if (settings.font_size) {
@@ -236,6 +242,10 @@ function syncSettingsUI(settings) {
   safeSet('keybind-display', 'value', settings.click_through_keybind || 'CommandOrControl+Shift+T');
   safeSet('input-client-id', 'value', settings.client_id || '');
   safeSet('input-client-secret', 'value', settings.client_secret || '');
+
+  if (settings.remote_port) {
+    safeSet('remote-port-input', 'value', settings.remote_port);
+  }
 
   if (settings.theme) {
     document.querySelectorAll('.theme-card').forEach(card =>
@@ -1020,14 +1030,156 @@ function appendChatLog(msg) {
 }
 
 // ── Toast ──────────────────────────────────────────────────────
+
+// ── Remote Control Tab ─────────────────────────────────────────
+function setupRemoteTab() {
+  const toggle = document.getElementById('toggle-remote-server');
+  const activeSection = document.getElementById('remote-active-section');
+
+  toggle?.addEventListener('change', async () => {
+    if (toggle.checked) {
+      // Save port first
+      const port = parseInt(document.getElementById('remote-port-input')?.value) || 9395;
+      try {
+        const settings = await invoke('get_settings');
+        settings.remote_port = port;
+        await invoke('save_settings', { newSettings: settings });
+      } catch(e) { /* ignore */ }
+
+      try {
+        const result = await invoke('start_remote_server');
+        updateRemoteUI({ running: true, pin: result.pin, ip: result.ip, port: result.port, connected_clients: 0 });
+        showToast('Remote server started!');
+      } catch(e) {
+        toggle.checked = false;
+        showToast('Failed to start server: ' + e, 'error');
+      }
+    } else {
+      try {
+        await invoke('stop_remote_server');
+        updateRemoteUI({ running: false });
+        showToast('Remote server stopped');
+      } catch(e) {
+        showToast('Error: ' + e, 'error');
+      }
+    }
+  });
+
+  document.getElementById('btn-copy-remote-url')?.addEventListener('click', () => {
+    const url = document.getElementById('remote-url-display')?.textContent;
+    if (url && url !== '--') {
+      navigator.clipboard.writeText(url).then(() => showToast('URL copied!'));
+    }
+  });
+
+  document.getElementById('btn-regenerate-pin')?.addEventListener('click', async () => {
+    try {
+      await invoke('stop_remote_server');
+      const result = await invoke('start_remote_server');
+      updateRemoteUI({ running: true, pin: result.pin, ip: result.ip, port: result.port, connected_clients: 0 });
+      showToast('PIN regenerated!');
+    } catch(e) { showToast('Error: ' + e, 'error'); }
+  });
+
+  document.getElementById('remote-port-input')?.addEventListener('change', async (e) => {
+    const port = parseInt(e.target.value) || 9395;
+    try {
+      const settings = await invoke('get_settings');
+      settings.remote_port = port;
+      await invoke('save_settings', { newSettings: settings });
+    } catch(err) { /* ignore */ }
+  });
+
+  // Check initial status
+  invoke('get_remote_status').then(status => updateRemoteUI(status)).catch(() => {});
+}
+
+function updateRemoteUI(status) {
+  const toggle = document.getElementById('toggle-remote-server');
+  const activeSection = document.getElementById('remote-active-section');
+  const pinDisplay = document.getElementById('remote-pin-display');
+  const urlDisplay = document.getElementById('remote-url-display');
+  const clientsDisplay = document.getElementById('remote-clients-display');
+  const qrContainer = document.getElementById('remote-qr-code');
+
+  if (!status || !status.running) {
+    if (toggle) toggle.checked = false;
+    if (activeSection) activeSection.style.display = 'none';
+    return;
+  }
+
+  if (toggle) toggle.checked = true;
+  if (activeSection) activeSection.style.display = 'block';
+  if (pinDisplay) pinDisplay.textContent = status.pin || '----';
+
+  const url = `http://${status.ip}:${status.port}`;
+  if (urlDisplay) urlDisplay.textContent = url;
+
+  if (clientsDisplay) {
+    const n = status.connected_clients || 0;
+    clientsDisplay.textContent = n === 0 ? 'No devices connected' : `${n} device${n !== 1 ? 's' : ''} connected`;
+    clientsDisplay.style.color = n > 0 ? '#43e97b' : 'rgba(255,255,255,0.6)';
+  }
+
+  // Generate QR code
+  if (qrContainer) {
+    qrContainer.innerHTML = '';
+    try {
+      const qr = generateQR(url);
+      qrContainer.appendChild(qr);
+    } catch(e) {
+      qrContainer.textContent = 'QR generation failed';
+    }
+  }
+}
+
+// ── QR Code Generator (uses qrcode-generator library) ──────────
+function generateQR(text) {
+  // qrcode-generator loaded via CDN in settings.html
+  const qr = qrcode(0, 'L'); // type 0 = auto-detect version, ECC level L
+  qr.addData(text);
+  qr.make();
+
+  const moduleCount = qr.getModuleCount();
+  const canvas = document.createElement('canvas');
+  const size = 200;
+  const cellSize = Math.floor(size / (moduleCount + 8));
+  const offset = Math.floor((size - cellSize * moduleCount) / 2);
+  canvas.width = size;
+  canvas.height = size;
+  canvas.style.width = size + 'px';
+  canvas.style.height = size + 'px';
+  canvas.style.imageRendering = 'pixelated';
+  canvas.style.borderRadius = '12px';
+
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, size, size);
+  ctx.fillStyle = '#000000';
+
+  for (let r = 0; r < moduleCount; r++) {
+    for (let c = 0; c < moduleCount; c++) {
+      if (qr.isDark(r, c)) {
+        ctx.fillRect(offset + c * cellSize, offset + r * cellSize, cellSize, cellSize);
+      }
+    }
+  }
+
+  return canvas;
+}
+
+let toastTimer = null;
 function showToast(message, type = 'info') {
   const toast = document.getElementById('toast');
   if (!toast) return;
   toast.textContent = message;
   toast.style.borderColor = type === 'error' ? 'rgba(248,113,113,0.4)' : 'var(--border, rgba(255,255,255,0.1))';
   toast.classList.add('visible');
-  clearTimeout(toast._timer);
-  toast._timer = setTimeout(() => toast.classList.remove('visible'), 2500);
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => {
+    toast.classList.remove('visible');
+    toastTimer = null;
+  }, 2500);
 }
 
 // ── Utils ──────────────────────────────────────────────────────

@@ -1,6 +1,6 @@
 [package]
 name = "streampoll"
-version = "0.5.1"
+version = "0.5.2"
 description = "Stream Poll — Restream.io live chat poll overlay"
 authors = []
 license = ""
@@ -30,3 +30,9 @@ reqwest = { version = "0.12", features = ["json"] }
 url = "2"
 futures-util = "0.3"
 native-tls = "0.2"
+hyper = { version = "1", features = ["server", "http1"] }
+hyper-util = { version = "0.1", features = ["tokio"] }
+http-body-util = "0.1"
+rand = "0.8"
+local-ip-address = "0.6"
+rust-embed = "8"

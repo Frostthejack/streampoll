@@ -31,12 +31,12 @@ A highly customizable, borderless, always-on-top overlay application that reads 
 
 ## Installation
 
-You can download the latest installers and executables for v0.5.1 directly from the repository:
+You can download the latest installers and executables for v0.5.2 directly from the repository:
 - [Stream Poll Executable (streampoll.exe)](https://github.com/Frostthejack/streampoll/raw/master/src-tauri/target/release/streampoll.exe)
-- [Stream Poll Setup Installer (NSIS)](https://github.com/Frostthejack/streampoll/raw/master/src-tauri/target/release/bundle/nsis/stream-poll_0.5.1_x64-setup.exe)
-- [Stream Poll MSI Installer](https://github.com/Frostthejack/streampoll/raw/master/src-tauri/target/release/bundle/msi/stream-poll_0.5.1_x64_en-US.msi)
+- [Stream Poll Setup Installer (NSIS)](https://github.com/Frostthejack/streampoll/raw/master/src-tauri/target/release/bundle/nsis/stream-poll_0.5.2_x64-setup.exe)
+- [Stream Poll MSI Installer](https://github.com/Frostthejack/streampoll/raw/master/src-tauri/target/release/bundle/msi/stream-poll_0.5.2_x64_en-US.msi)
 
-1. Run the **`stream-poll_0.5.1_x64-setup.exe`** installer.
+1. Run the **`stream-poll_0.5.2_x64-setup.exe`** installer.
 2. Follow the installer prompts to complete the installation.
 3. Launch **Stream Poll** from your Start menu or Desktop shortcut.
 
@@ -147,6 +147,29 @@ You can control the poll *directly* from the transparent overlay!
 ![Overlay Controls Placeholder](docs/app_overlay_controls.png)
 
 > **Important:** The app only listens to the chat when the status is **Live**. 
+
+---
+
+## 📱 Managing the Poll Remotely (Mobile Web App / PWA)
+
+Stream Poll includes a built-in mobile-friendly Web App (PWA) that allows you or your moderators to manage polls, view the active queue, and control poll states from a mobile phone, tablet, or another computer on your network.
+
+### How to Connect
+
+1. In the Desktop App, navigate to the **Remote** tab (look for the mobile phone icon 📱).
+2. Toggle the **Remote Control Server** to **ON**.
+3. You will see a **QR Code**, a **4-digit PIN**, and a **Connection URL**.
+4. Scan the QR code with your mobile device's camera, or enter the shown URL in your device's browser.
+   - *Note:* If you are using custom network configurations or VPNs (like Tailscale) on the host machine, make sure your mobile device connects to the host's correct network address (e.g. your Tailscale IP).
+5. Enter the **4-digit PIN** displayed on the desktop app to authorize your mobile device.
+6. Once authorized, the Web App will sync in real time!
+
+### Web App Features
+
+- **Active Poll View:** View the current live question, options, vote counts, and status (Live/Paused/Stopped) in real time.
+- **Library List:** View your saved polls. Tap **"Queue"** on a saved poll to add it to your active queue. The button turns green with a checkmark and the card flashes to confirm it has been successfully queued.
+- **Active Queue:** View queued polls. Tap **"Next"** to pop the top poll from the queue, delete it, load it into the active overlay, and automatically cycle to the next one cleanly without needing a reset.
+- **Controls:** Start, Pause, Resume, or Stop the active poll directly from your device. Stopped polls are automatically saved to your poll history.
 
 ---
 

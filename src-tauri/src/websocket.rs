@@ -4,6 +4,7 @@ use futures_util::{SinkExt, StreamExt};
 use serde::Deserialize;
 use std::sync::Arc;
 use tauri::Emitter;
+use tauri::Manager;
 use tokio::sync::{Mutex, broadcast};
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 
@@ -224,5 +225,10 @@ async fn process_chat_event(
     if let Some(update) = state.process_message(author, text) {
         drop(state);
         let _ = app_handle.emit("poll_update", &update);
+
+        // Broadcast to remote mobile clients
+        if let Some(app_state) = app_handle.try_state::<crate::AppState>() {
+            crate::broadcast_poll_update(&app_state, &update).await;
+        }
     }
 }

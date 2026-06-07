@@ -168,6 +168,9 @@
       <button class="tab-btn" data-tab="window" role="tab" id="tab-window">
         <span class="tab-icon">🪟</span> Window
       </button>
+      <button class="tab-btn" data-tab="remote" role="tab" id="tab-remote">
+        <span class="tab-icon">📱</span> Remote
+      </button>
       <button class="tab-btn" data-tab="connection" role="tab" id="tab-connection">
         <span class="tab-icon">🔗</span> Connect
       </button>
@@ -496,7 +499,7 @@
       <div class="settings-section toggles-row">
         <div class="toggle-item">
           <label class="toggle-label" for="toggle-always-on-top">Overlay Always on Top</label>
-          <label class="toggle-switch"><input type="checkbox" id="toggle-always-on-top" checked /><span class="toggle-slider"></span></label>
+          <label class="toggle-switch"><input type="checkbox" id="toggle-always-on-top" /><span class="toggle-slider"></span></label>
         </div>
         <div class="toggle-item">
           <label class="toggle-label" for="toggle-click-through">Click-Through Mode</label>
@@ -517,6 +520,67 @@
 
       <div class="settings-info-box">
         <p>💡 The overlay window opens when you click <strong>Show Overlay</strong> or start the poll. It stays open independently — minimizing this settings window won't close it.</p>
+      </div>
+    </div>
+
+    <!-- ── Tab: Remote Control ── -->
+    <div class="tab-panel hidden" data-panel="remote" role="tabpanel">
+      <div class="settings-section">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+          <div>
+            <label class="settings-label" style="margin-bottom:2px;">Remote Control Server</label>
+            <p style="font-size:11px;color:rgba(255,255,255,0.4);margin:0;">Control your poll from your phone</p>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="toggle-remote-server" />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+      </div>
+
+      <!-- QR Code + PIN -->
+      <div id="remote-active-section" class="settings-section" style="display:none;">
+        <div style="text-align:center;margin-bottom:16px;">
+          <div id="remote-qr-code" style="display:inline-block;padding:12px;background:#fff;border-radius:12px;margin-bottom:12px;"></div>
+          <p style="font-size:12px;color:rgba(255,255,255,0.5);margin:4px 0 0;">Scan with your phone's camera</p>
+        </div>
+
+        <div style="display:flex;gap:12px;margin-bottom:12px;">
+          <div style="flex:1;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:12px;text-align:center;">
+            <label style="font-size:10px;text-transform:uppercase;letter-spacing:0.05em;color:rgba(255,255,255,0.4);display:block;margin-bottom:4px;">PIN Code</label>
+            <span id="remote-pin-display" style="font-size:28px;font-weight:700;letter-spacing:8px;color:#a78bfa;font-family:'Fira Code',monospace;">----</span>
+          </div>
+        </div>
+
+        <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:10px 12px;margin-bottom:12px;">
+          <label style="font-size:10px;text-transform:uppercase;letter-spacing:0.05em;color:rgba(255,255,255,0.4);display:block;margin-bottom:4px;">Connection URL</label>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <code id="remote-url-display" style="flex:1;font-size:13px;color:#e2e8f0;font-family:'Fira Code',monospace;word-break:break-all;">--</code>
+            <button id="btn-copy-remote-url" class="btn-secondary small" title="Copy URL">📋</button>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:8px;margin-bottom:12px;">
+          <button id="btn-regenerate-pin" class="btn-secondary" style="flex:1;">🔄 New PIN</button>
+        </div>
+
+        <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:10px 12px;">
+          <label style="font-size:10px;text-transform:uppercase;letter-spacing:0.05em;color:rgba(255,255,255,0.4);display:block;margin-bottom:6px;">Connected Devices</label>
+          <div id="remote-clients-display" style="font-size:13px;color:rgba(255,255,255,0.6);">No devices connected</div>
+        </div>
+      </div>
+
+      <!-- Port configuration -->
+      <div class="settings-section">
+        <label class="settings-label" for="remote-port-input">Server Port</label>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input type="number" id="remote-port-input" class="settings-input" value="9395" min="1024" max="65535" style="width:100px;" />
+          <span style="font-size:11px;color:rgba(255,255,255,0.35);">Default: 9395</span>
+        </div>
+      </div>
+
+      <div class="settings-info-box">
+        <p>📱 Open the URL on your phone (same WiFi network) to control the poll remotely. The PIN ensures only you can connect.</p>
       </div>
     </div>
 
@@ -580,6 +644,7 @@
   <div id="toast"></div>
 
 </div><!-- end settings-root -->
+<script src="js/qrcode.min.js"></script>
 <script type="module" src="js/settings-window.js"></script>
 </body>
 </html>

@@ -94,6 +94,8 @@ pub struct AppSettings {
     pub global_overlay_color: String,
     pub saved_themes: Vec<SavedTheme>,
     pub theme_overrides: std::collections::HashMap<String, SavedTheme>,
+    pub remote_port: u16,
+    pub remote_enabled: bool,
 }
 
 impl Default for AppSettings {
@@ -127,6 +129,8 @@ impl Default for AppSettings {
             global_overlay_color: "#ffffff".to_string(),
             saved_themes: Vec::new(),
             theme_overrides: std::collections::HashMap::new(),
+            remote_port: 9395,
+            remote_enabled: false,
         }
     }
 }

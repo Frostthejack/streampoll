@@ -1,0 +1,19 @@
+{
+  "name": "StreamPoll Remote",
+  "short_name": "StreamPoll",
+  "description": "Remote control for StreamPoll — manage live polls from your phone",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0f0f1e",
+  "theme_color": "#0f0f1e",
+  "categories": ["utilities", "entertainment"],
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='100' fill='%230f0f1e'/><rect x='100' y='280' width='80' height='140' rx='12' fill='%236c63ff' opacity='.6'/><rect x='216' y='180' width='80' height='240' rx='12' fill='%23a78bfa'/><rect x='332' y='120' width='80' height='300' rx='12' fill='%236c63ff'/></svg>",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

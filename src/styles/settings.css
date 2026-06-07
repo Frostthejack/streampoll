@@ -37,6 +37,7 @@
   font-family: var(--font-main);
   cursor: pointer;
   white-space: nowrap;
+  flex-shrink: 0;
   transition: all 0.15s ease;
 }
 

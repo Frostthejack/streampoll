@@ -197,7 +197,7 @@ function applySettingsToUI(settings) {
 }
 
 function syncSettingsUI(settings) {
-  safeSet('toggle-always-on-top', 'checked', settings.always_on_top !== false);
+  safeSet('toggle-always-on-top', 'checked', settings.always_on_top === true);
   safeSet('toggle-click-through', 'checked', settings.click_through === true);
   safeSet('font-family-select', 'value', settings.custom_font || 'Inter');
   safeSet('font-size-slider', 'value', settings.font_size || 16);
@@ -270,14 +270,18 @@ function setupToast() {
   document.body.appendChild(toast);
 }
 
+let toastTimer = null;
 function showToast(message, type = 'info') {
   const toast = document.getElementById('toast');
   if (!toast) return;
   toast.textContent = message;
   toast.style.borderColor = type === 'error' ? 'rgba(248,113,113,0.4)' : 'var(--border)';
   toast.classList.add('visible');
-  clearTimeout(toast._timer);
-  toast._timer = setTimeout(() => toast.classList.remove('visible'), 2500);
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => {
+    toast.classList.remove('visible');
+    toastTimer = null;
+  }, 2500);
 }
 
 // ── Poll rendering (inline, no module deps) ────────────────────

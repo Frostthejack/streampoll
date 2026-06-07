@@ -1,11 +1,13 @@
 // lib.rs — Tauri app builder, state, and command registration
 mod auth;
 mod poll;
+mod remote;
 mod settings;
 mod websocket;
 
 use auth::AuthState;
 use poll::{PollConfig, PollHistoryEntry, PollState, PollStatus, PollUpdate, SavedPoll};
+use remote::RemoteServer;
 use settings::AppSettings;
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter, Manager, State};
@@ -21,6 +23,7 @@ pub struct AppState {
     pub poll_queue: Arc<Mutex<Vec<String>>>,      // ordered list of saved poll IDs
     pub queue_index: Arc<Mutex<usize>>,            // current position in queue
     pub poll_history: Arc<Mutex<Vec<PollHistoryEntry>>>,
+    pub remote: Arc<Mutex<RemoteServer>>,
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -37,6 +40,7 @@ async fn start_poll(
         poll.status = PollStatus::Running;
         let update = poll.build_update();
         let _ = app_handle.emit("poll_update", &update);
+        broadcast_poll_update(&state, &update).await;
     }
 
     // Connect WebSocket if we have a token
@@ -79,6 +83,7 @@ async fn pause_poll(
         let update = poll.build_update();
         drop(poll);
         let _ = app_handle.emit("poll_update", &update);
+        broadcast_poll_update(&state, &update).await;
     }
     Ok(())
 }
@@ -94,6 +99,7 @@ async fn resume_poll(
         let update = poll.build_update();
         drop(poll);
         let _ = app_handle.emit("poll_update", &update);
+        broadcast_poll_update(&state, &update).await;
     }
     Ok(())
 }
@@ -139,6 +145,7 @@ async fn stop_poll(
     };
 
     let _ = app_handle.emit("poll_update", &update);
+    broadcast_poll_update(&state, &update).await;
 
     // Save to history
     if let Some(entry) = history_entry {
@@ -163,6 +170,7 @@ async fn reset_poll(
     let update = poll.build_update();
     drop(poll);
     let _ = app_handle.emit("poll_update", &update);
+    broadcast_poll_update(&state, &update).await;
     Ok(())
 }
 
@@ -192,6 +200,7 @@ async fn set_poll_config(
     let update = poll.build_update();
     drop(poll);
     let _ = app_handle.emit("poll_update", &update);
+    broadcast_poll_update(&state, &update).await;
     Ok(())
 }
 
@@ -234,6 +243,7 @@ async fn save_poll(
         polls.push(saved.clone());
     }
     persist_polls(&app_handle, &state).await;
+    remote::broadcast_library_update(&state).await;
     Ok(saved)
 }
 
@@ -254,6 +264,8 @@ async fn delete_poll(
     }
     persist_polls(&app_handle, &state).await;
     persist_queue(&app_handle, &state).await;
+    remote::broadcast_library_update(&state).await;
+    remote::broadcast_queue_update(&state).await;
     Ok(())
 }
 
@@ -279,6 +291,7 @@ async fn set_queue(
         *idx = 0;
     }
     persist_queue(&app_handle, &state).await;
+    remote::broadcast_queue_update(&state).await;
     Ok(())
 }
 
@@ -327,23 +340,25 @@ async fn next_poll_in_queue(
         let _ = app_handle.emit("history_updated", serde_json::json!({}));
     }
 
-    let queue = state.poll_queue.lock().await.clone();
-    if queue.is_empty() {
-        return Err("Queue is empty".to_string());
-    }
-
-    let idx = {
-        let i = state.queue_index.lock().await.clone();
-        i
+    let poll_id = {
+        let mut queue = state.poll_queue.lock().await;
+        if queue.is_empty() {
+            return Err("Queue is empty".to_string());
+        }
+        queue.remove(0)
     };
 
-    if idx >= queue.len() {
-        return Err("End of queue reached".to_string());
+    {
+        let mut idx = state.queue_index.lock().await;
+        *idx = 0;
     }
 
-    let poll_id = &queue[idx];
+    persist_queue(&app_handle, &state).await;
+    remote::broadcast_queue_update(&state).await;
+    let _ = app_handle.emit("queue_updated", serde_json::json!({}));
+
     let saved_polls = state.saved_polls.lock().await;
-    let found = saved_polls.iter().find(|p| &p.id == poll_id).cloned();
+    let found = saved_polls.iter().find(|p| p.id == poll_id).cloned();
     drop(saved_polls);
 
     if let Some(saved) = found {
@@ -359,18 +374,13 @@ async fn next_poll_in_queue(
             let update = poll.build_update();
             drop(poll);
             let _ = app_handle.emit("poll_update", &update);
+            broadcast_poll_update(&state, &update).await;
         }
 
-        // Advance index
-        {
-            let mut i = state.queue_index.lock().await;
-            *i += 1;
-        }
-
-        let next_idx = state.queue_index.lock().await.clone();
+        let queue_len = state.poll_queue.lock().await.len();
         Ok(serde_json::json!({
             "loaded": saved.name,
-            "remaining": queue.len().saturating_sub(next_idx)
+            "remaining": queue_len
         }))
     } else {
         Err(format!("Poll {} not found in library", poll_id))
@@ -395,13 +405,122 @@ async fn persist_queue(app_handle: &AppHandle, state: &AppState) {
     }
 }
 
-async fn persist_history(app_handle: &AppHandle, state: &AppState) {
+pub async fn persist_history(app_handle: &AppHandle, state: &AppState) {
     let hist = state.poll_history.lock().await;
     let store = tauri_plugin_store::StoreBuilder::new(app_handle, "history.json").build();
     if let Ok(store) = store {
         let _ = store.set("poll_history", serde_json::to_value(&*hist).unwrap_or_default());
         let _ = store.save();
     }
+}
+
+// ── Broadcast poll update to remote mobile clients ─────────────
+async fn broadcast_poll_update(state: &AppState, update: &PollUpdate) {
+    let remote = state.remote.lock().await;
+    if remote.shutdown_tx.is_some() {
+        let data = serde_json::to_value(update).unwrap_or_default();
+        remote::broadcast_event(&remote.event_tx, "poll_update", &data);
+    }
+}
+
+// ─────────────────────────────────────────────────────────────
+// Remote Control Commands
+// ─────────────────────────────────────────────────────────────
+
+#[tauri::command]
+async fn start_remote_server(
+    app_handle: AppHandle,
+    state: State<'_, AppState>,
+) -> Result<serde_json::Value, String> {
+    let mut remote = state.remote.lock().await;
+    if remote.shutdown_tx.is_some() {
+        return Err("Remote server is already running.".to_string());
+    }
+
+    let settings = state.settings.lock().await;
+    let port = settings.remote_port;
+    drop(settings);
+
+    let pin = remote::generate_pin();
+    let ip = remote::get_local_ip();
+
+    let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
+    let (event_tx, _) = broadcast::channel::<String>(256);
+
+    remote.shutdown_tx = Some(shutdown_tx);
+    remote.pin = pin.clone();
+    remote.port = port;
+    remote.event_tx = event_tx.clone();
+    let client_count = Arc::clone(&remote.client_count);
+    drop(remote);
+
+    let app_clone = app_handle.clone();
+    tokio::spawn(async move {
+        remote::start_server(app_clone, port, pin.clone(), event_tx, client_count, shutdown_rx).await;
+    });
+
+    log::info!("[Remote] Server started on {}:{}", ip, port);
+
+    let result = serde_json::json!({
+        "url": format!("http://{}:{}", ip, port),
+        "pin": state.remote.lock().await.pin.clone(),
+        "ip": ip,
+        "port": port
+    });
+
+    // Emit status update
+    let _ = app_handle.emit("remote_status", &serde_json::json!({
+        "running": true,
+        "pin": result["pin"],
+        "port": port,
+        "ip": ip,
+        "connected_clients": 0
+    }));
+
+    Ok(result)
+}
+
+#[tauri::command]
+async fn stop_remote_server(
+    app_handle: AppHandle,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    let mut remote = state.remote.lock().await;
+    if let Some(tx) = remote.shutdown_tx.take() {
+        let _ = tx.send(());
+        remote.pin.clear();
+        {
+            let mut count = remote.client_count.lock().await;
+            *count = 0;
+        }
+        log::info!("[Remote] Server stopped");
+    }
+    drop(remote);
+
+    let _ = app_handle.emit("remote_status", &serde_json::json!({
+        "running": false,
+        "pin": "",
+        "port": 0,
+        "ip": "",
+        "connected_clients": 0
+    }));
+
+    Ok(())
+}
+
+#[tauri::command]
+async fn get_remote_status(
+    state: State<'_, AppState>,
+) -> Result<serde_json::Value, String> {
+    let remote = state.remote.lock().await;
+    let count = *remote.client_count.lock().await;
+    Ok(serde_json::json!({
+        "running": remote.shutdown_tx.is_some(),
+        "pin": remote.pin,
+        "port": remote.port,
+        "ip": remote::get_local_ip(),
+        "connected_clients": count
+    }))
 }
 
 #[tauri::command]
@@ -756,6 +875,7 @@ pub fn run() {
     let poll_queue = Arc::new(Mutex::new(Vec::<String>::new()));
     let queue_index = Arc::new(Mutex::new(0usize));
     let poll_history = Arc::new(Mutex::new(Vec::<PollHistoryEntry>::new()));
+    let remote_server = Arc::new(Mutex::new(RemoteServer::default()));
 
     let app_state = AppState {
         poll: Arc::clone(&poll_state),
@@ -766,6 +886,7 @@ pub fn run() {
         poll_queue: Arc::clone(&poll_queue),
         queue_index: Arc::clone(&queue_index),
         poll_history: Arc::clone(&poll_history),
+        remote: Arc::clone(&remote_server),
     };
 
     tauri::Builder::default()
@@ -806,6 +927,10 @@ pub fn run() {
             set_always_on_top,
             set_click_through,
             register_keybind,
+            // Remote Control
+            start_remote_server,
+            stop_remote_server,
+            get_remote_status,
         ])
         .setup(|app| {
             // Load persisted settings on startup
